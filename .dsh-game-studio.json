@@ -1,0 +1,16 @@
+{
+  "tool": "dsh-game-studio",
+  "version": 1,
+  "games": {
+    "chick-coins": {
+      "title": "小鸡接金币",
+      "source": "407d2e5f63bf43f3",
+      "publishedAt": "2026-11-20T16:23:53.794Z",
+      "buildId": "abad49cd14fc",
+      "dimension": "2d",
+      "orientation": "portrait",
+      "cover": "chick-coins/cover.jpg"
+    }
+  },
+  "wall": null
+}
