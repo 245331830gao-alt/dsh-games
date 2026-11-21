@@ -10,6 +10,15 @@
       "dimension": "2d",
       "orientation": "portrait",
       "cover": "chick-coins/cover.jpg"
+    },
+    "daboss": {
+      "title": "打Boss",
+      "source": "49257555f5796b9e",
+      "publishedAt": "2026-11-21T05:11:18.124Z",
+      "buildId": "b0de47bcf487",
+      "dimension": "2d",
+      "orientation": "portrait",
+      "cover": "daboss/cover.jpg"
     }
   },
   "wall": null

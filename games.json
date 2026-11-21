@@ -3,8 +3,17 @@
   "version": 1,
   "name": "245331830gao-alt 的小游戏",
   "author": "245331830gao-alt",
-  "updatedAt": "2026-11-20T16:23:53.794Z",
+  "updatedAt": "2026-11-21T05:11:18.124Z",
   "games": [
+    {
+      "slug": "daboss",
+      "title": "打Boss",
+      "url": "daboss/",
+      "cover": "daboss/cover.jpg",
+      "dimension": "2d",
+      "orientation": "portrait",
+      "publishedAt": "2026-11-21T05:11:18.124Z"
+    },
     {
       "slug": "chick-coins",
       "title": "小鸡接金币",
