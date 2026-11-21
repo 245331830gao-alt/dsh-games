@@ -1218,6 +1218,23 @@
     }
     drawHUD();
     drawOverlay();
+    if (window.innerHeight > window.innerWidth) drawRotateHint();
+  }
+
+  function drawRotateHint() {
+    ctx.save();
+    ctx.fillStyle = 'rgba(13,17,23,0.82)';
+    ctx.fillRect(0, 0, 1280, 720);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffd166';
+    ctx.font = 'bold 46px "PingFang SC", sans-serif';
+    ctx.fillText('请把手机横过来', 640, 330);
+    ctx.fillStyle = '#c8d3df';
+    ctx.font = '26px "PingFang SC", sans-serif';
+    ctx.fillText('横屏玩起来才够宽，走廊才跑得开', 640, 380);
+    ctx.font = '54px "PingFang SC", sans-serif';
+    ctx.fillText('⟳', 640, 460);
+    ctx.restore();
   }
 
   /* ---------- 14. 尺寸 ---------- */
@@ -1229,7 +1246,7 @@
     canvas.height = Math.round(cssH * dpr);
     canvas.style.width = cssW + 'px';
     canvas.style.height = cssH + 'px';
-    fit = Math.max(cssW / 1280, cssH / 720);
+    fit = Math.min(cssW / 1280, cssH / 720);
     ox = (cssW - 1280 * fit) / 2;
     oy = (cssH - 720 * fit) / 2;
   }
