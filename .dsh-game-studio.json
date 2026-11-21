@@ -14,10 +14,10 @@
     "daboss": {
       "title": "打Boss",
       "source": "49257555f5796b9e",
-      "publishedAt": "2026-11-21T05:11:18.124Z",
-      "buildId": "b0de47bcf487",
+      "publishedAt": "2026-11-21T06:35:27.010Z",
+      "buildId": "82a9b9a151e8",
       "dimension": "2d",
-      "orientation": "portrait",
+      "orientation": "landscape",
       "cover": "daboss/cover.jpg"
     }
   },

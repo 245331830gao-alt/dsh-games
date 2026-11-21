@@ -3,7 +3,7 @@
   "version": 1,
   "name": "245331830gao-alt 的小游戏",
   "author": "245331830gao-alt",
-  "updatedAt": "2026-11-21T05:11:18.124Z",
+  "updatedAt": "2026-11-21T06:35:27.010Z",
   "games": [
     {
       "slug": "daboss",
@@ -11,8 +11,8 @@
       "url": "daboss/",
       "cover": "daboss/cover.jpg",
       "dimension": "2d",
-      "orientation": "portrait",
-      "publishedAt": "2026-11-21T05:11:18.124Z"
+      "orientation": "landscape",
+      "publishedAt": "2026-11-21T06:35:27.010Z"
     },
     {
       "slug": "chick-coins",
