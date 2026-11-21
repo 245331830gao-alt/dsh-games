@@ -71,6 +71,15 @@
     ['meeting', 2780], ['kpi', 3180], ['paper', 3380], ['meeting', 3860], ['kpi', 4140],
     ['paper', 4460], ['phone', 4780], ['kpi', 4980]
   ];
+  var OBJ_DEFS = [
+    { type: 'cabinet', x: 760, y: GROUND_Y, w: 72, h: 150 },
+    { type: 'printer', x: 1500, y: GROUND_Y, w: 92, h: 74 },
+    { type: 'box', x: 2280, y: GROUND_Y, w: 78, h: 62 },
+    { type: 'cabinet', x: 3060, y: GROUND_Y, w: 72, h: 150 },
+    { type: 'printer', x: 4180, y: GROUND_Y, w: 92, h: 74 },
+    { type: 'box', x: 4700, y: GROUND_Y, w: 78, h: 62 },
+    { type: 'printer', x: 5600, y: GROUND_Y, w: 92, h: 74 }
+  ];
   var BOSS_X = 6120;
   var ARENA_LEFT = 5200;
 
@@ -81,6 +90,8 @@
   var rage = 0, score = 0, coins = 0, combo = 0, comboT = 0, bestCombo = 0;
   var enemies = [], items = [], shots = [], parts = [], floats = [];
   var boss = null;
+  var objects = [];
+  var corpses = [];
   var bossActive = false;
   var camLock = false;
   var shake = 0, flash = 0, slow = 0, hurtFlash = 0;
@@ -229,6 +240,90 @@
     else if (type === 'kpi') { e.hp = 6; e.w = 70; e.h = 86; e.speed = 95; }
     enemies.push(e);
   }
+  function objHitTest(x, y, r) {
+    for (var i = 0; i < objects.length; i++) {
+      var o = objects[i];
+      if (o.dead) continue;
+      if (Math.abs(x - o.x) < o.w / 2 + (r || 30) && y > o.y - o.h - 20 && y < o.y + 20) return o;
+    }
+    return null;
+  }
+
+  function triggerObj(o, depth) {
+    if (!o || o.dead) return;
+    o.dead = true;
+    o.hp = 0;
+    depth = depth || 0;
+    var i;
+    if (o.type === 'cabinet') {
+      // 文件柜倒下，砸一片
+      for (i = 0; i < enemies.length; i++) {
+        var e = enemies[i];
+        if (!e.dead && Math.abs(e.x - o.x) < 210) damageEnemy(e, 2, e.x < o.x ? -1 : 1);
+      }
+      for (i = 0; i < 18; i++) addPart(o.x, o.y - o.h / 2, '#c9a87c', 18, 380);
+      addFloat(o.x, o.y - o.h - 20, '文件柜倒了！', '#ffcf3f', 28);
+      shake = Math.max(shake, 0.4);
+      score += 30;
+    } else if (o.type === 'printer') {
+      // 打印机喷纸风暴
+      for (i = 0; i < enemies.length; i++) {
+        var e2 = enemies[i];
+        if (!e2.dead && Math.abs(e2.x - o.x) < 260) damageEnemy(e2, 2, e2.x < o.x ? -1 : 1);
+      }
+      for (i = 0; i < 22; i++) addPart(o.x, o.y - 40, '#ffffff', 22, 460);
+      addFloat(o.x, o.y - o.h - 30, '纸！纸！纸！', '#ffcf3f', 28);
+      shake = Math.max(shake, 0.35);
+      score += 40;
+    } else {
+      // 文件箱爆金币
+      for (i = 0; i < 7; i++) spawnCoin(o.x + rand(-50, 50), o.y - 40);
+      addFloat(o.x, o.y - o.h - 20, '加班费！', '#ffd166', 28);
+      score += 20;
+    }
+    sfx.kill();
+    // 连锁：附近的物件跟着倒
+    if (depth < 4) {
+      for (i = 0; i < objects.length; i++) {
+        var n = objects[i];
+        if (n.dead || n === o) continue;
+        if (Math.abs(n.x - o.x) < 300) n.chain = 0.18 + depth * 0.12;
+      }
+    }
+  }
+
+  function updateObjects(dt) {
+    for (var i = 0; i < objects.length; i++) {
+      var o = objects[i];
+      if (o.dead) { if (o.tilt < 1.2) o.tilt = Math.min(1.2, o.tilt + dt * 4); continue; }
+      if (o.chain > 0) {
+        o.chain -= dt;
+        if (o.chain <= 0) triggerObj(o, 1);
+      }
+    }
+    // 飞出去的小怪撞击
+    for (var c = corpses.length - 1; c >= 0; c--) {
+      var k = corpses[c];
+      k.life -= dt;
+      k.vy += 1400 * dt;
+      k.x += k.vx * dt; k.y += k.vy * dt; k.rot += dt * 8;
+      var hit = objHitTest(k.x, k.y, 34);
+      if (hit) {
+        triggerObj(hit, 0);
+        corpses.splice(c, 1);
+        continue;
+      }
+      for (var j = 0; j < enemies.length; j++) {
+        var en = enemies[j];
+        if (!en.dead && Math.abs(en.x - k.x) < 50 && Math.abs(en.y - 40 - k.y) < 70) {
+          damageEnemy(en, 2, k.vx > 0 ? 1 : -1);
+          break;
+        }
+      }
+      if (k.life <= 0 || k.x < cam.x - 200 || k.x > cam.x + 1500) corpses.splice(c, 1);
+    }
+  }
+
   function spawnCoin(x, y) { items.push({ type: 'coin', x: x, y: y, vy: rand(-320, -180), vx: rand(-90, 90), age: 0, life: 12 }); }
   function spawnCoffee(x, y) { items.push({ type: 'coffee', x: x, y: y, vy: rand(-300, -160), vx: rand(-80, 80), age: 0, life: 14 }); }
 
@@ -249,7 +344,11 @@
     hero.facing = 1; hero.invuln = 0; hero.attackCd = 0; hero.swing = 0;
     hearts = R.hearts; rage = 0; score = 0; coins = 0; combo = 0; comboT = 0; bestCombo = 0;
     enemies = []; items = []; shots = []; parts = []; floats = [];
-    boss = { x: BOSS_X, y: GROUND_Y, hp: R.bossHp, maxHp: R.bossHp, stage: 1, hurt: 0, shield: R.shieldHp, shieldMax: R.shieldHp, atkT: 2.2, state: 'shield', rolling: 0, wob: 0, dead: false, fly: 0 };
+    boss = { x: BOSS_X, y: GROUND_Y, hp: R.bossHp, maxHp: R.bossHp, stage: 1, hurt: 0, shield: R.shieldHp, shieldMax: R.shieldHp, atkT: 2.2, state: 'shield', rolling: 0, wob: 0, dead: false, fly: 0, stagger: 0 };
+    objects = OBJ_DEFS.map(function (o) {
+      return { type: o.type, x: o.x, y: o.y, w: o.w, h: o.h, hp: 2, dead: false, timer: -1, tilt: 0, chain: 0 };
+    });
+    corpses = [];
     bossActive = false; camLock = false; doorT = 0;
     shake = 0; flash = 0; slow = 0; hurtFlash = 0; elapsed = 0; restartGuard = 0;
     ultActive = 0; ultDone = false; taunt = ''; tauntT = 0;
@@ -308,6 +407,7 @@
       stats.kills++;
       score += 50;
       addPart(e.x, e.y - e.h / 2, '#e8e2d4', 14, 420);
+      corpses.push({ x: e.x, y: e.y - 30, vx: (hero.facing || 1) * 520, vy: -260, type: e.type, life: 1.6, rot: 0 });
       spawnCoin(e.x, e.y - 40);
       if (Math.random() < 0.22) spawnCoffee(e.x + 10, e.y - 50);
       sfx.kill();
@@ -328,6 +428,7 @@
       }
       return;
     }
+    if (boss.stagger > 0) dmg = Math.round(dmg * 2);
     boss.hp = Math.max(0, boss.hp - dmg);
     boss.hurt = 0.16;
     rage = Math.min(R.rageMax, rage + 1.5);
@@ -346,6 +447,7 @@
   function bossDie() {
     boss.dead = true;
     boss.fly = 0.01;
+    boss.boxX = boss.x;
     slow = 0.9; flash = 0.5; shake = 0.6;
     score += 500;
     addFloat(boss.x, boss.y - 240, '砰！', '#ffcf3f', 64);
@@ -383,7 +485,19 @@
     hurtFlash = 0.5; shake = 0.35;
     addPart(hero.x, hero.y - 50, '#ff8a6e', 10, 300);
     sfx.hurt();
-    if (hearts <= 0) { hearts = 0; endGame(false); }
+    if (hearts <= 0) {
+      if (bossActive) {
+        // v2.1：老板战就地重试，不重跑前面两段
+        hearts = 2;
+        hero.x = ARENA_LEFT + 160; hero.y = GROUND_Y - 200; hero.vx = 0; hero.vy = 0;
+        hero.invuln = 2.2;
+        boss.shield = boss.shieldMax; boss.state = 'shield'; boss.atkT = 2.2; boss.stagger = 0;
+        addFloat(hero.x, hero.y - 120, '再来一次！', '#ffd166', 34);
+        say('王总：怎么又来了？', 1.6);
+        return;
+      }
+      hearts = 0; endGame(false);
+    }
   }
 
   /* ---------- 12. 更新 ---------- */
@@ -432,14 +546,15 @@
     if (hero.onGround) hero.coyote = 0.1; else hero.coyote = Math.max(0, (hero.coyote || 0) - dt);
     if (hero.onGround && wasAir) addPart(hero.x, hero.y, '#c9d4df', 4, 120);
 
-    // 坑
+    // 坑：v2.1 低挫败 —— 不扣血，弹回附近平台，只掉一点金币
     if (hero.y > GROUND_Y + 150) {
-      hearts -= 1; hurtFlash = 0.5;
-      if (hearts <= 0) { hearts = 0; endGame(false); return; }
       var seg = segAt(hero.x) || nearestSeg(hero.x);
-      hero.x = seg[0] + 60; hero.y = GROUND_Y - 120; hero.vy = 0; hero.vx = 0; hero.invuln = 1.4;
-      addFloat(hero.x, hero.y - 80, '掉下去了', '#ffb3a7', 24);
-      if (hearts <= 0) endGame(false);
+      var lost = Math.min(coins, 3);
+      coins -= lost;
+      hero.x = seg[0] + clamp(hero.x - seg[0], 60, (seg[1] - seg[0]) - 60);
+      hero.y = GROUND_Y - 140; hero.vy = 0; hero.vx = 0; hero.invuln = 1.6;
+      addFloat(hero.x, hero.y - 80, lost > 0 ? '被弹回来了 -' + lost + '金币' : '被弹回来了', '#9ae6b4', 24);
+      hurtFlash = 0.25;
     }
 
     // 边界
@@ -531,8 +646,8 @@
 
     if (boss.fly > 0) {
       boss.fly += dt;
-      boss.x += 900 * dt;
-      boss.y -= 500 * dt;
+      boss.x += (boss.boxX - boss.x) * Math.min(1, 6 * dt);
+      boss.y += ((GROUND_Y - 40) - boss.y) * Math.min(1, 4 * dt);
       if (boss.fly > 1.4 && phase === 'playing') endGame(true);
       return;
     }
@@ -549,6 +664,11 @@
       return;
     }
 
+    if (boss.stagger > 0) {
+      boss.stagger -= dt;
+      boss.wob += dt * 3;
+      return;
+    }
     boss.atkT -= dt;
     if (boss.atkT <= 0) {
       boss.atkT = boss.stage === 1 ? 2.4 : (boss.stage === 2 ? 2.0 : 1.6);
@@ -605,10 +725,28 @@
         hurtHero(s.x, 1);
         if (s.type !== 'roll') { shots.splice(i, 1); continue; }
       }
-      // 打碎飞来的饼/文件
+      // 拍回飞来的饼/文件：反弹回去打老板，并打出破防
       var box = attackBox();
-      if (hero.swing > 0 && s.x > box.x1 - s.r && s.x < box.x2 + s.r && s.y > box.y1 && s.y < box.y2) {
-        if (s.type !== 'roll') { addPart(s.x, s.y, '#ffd166', 8, 260); shots.splice(i, 1); score += 5; continue; }
+      if (hero.swing > 0 && s.type !== 'roll' && s.type !== 'reflected' &&
+          s.x > box.x1 - s.r && s.x < box.x2 + s.r && s.y > box.y1 && s.y < box.y2) {
+        s.type = 'reflected';
+        s.vx = -s.vx * 1.5;
+        s.vy = -Math.abs(s.vy) * 0.7 - 60;
+        addPart(s.x, s.y, '#ffd166', 10, 300);
+        addFloat(s.x, s.y - 20, '拍回去！', '#ffcf3f', 26);
+        score += 15;
+        sfx.hit();
+        continue;
+      }
+      // 反弹物命中老板
+      if (s.type === 'reflected' && bossActive && boss && !boss.dead &&
+          Math.abs(s.x - boss.x) < 150 && s.y < boss.y - 60 && s.y > boss.y - 330) {
+        boss.shield = 0;
+        boss.stagger = Math.max(boss.stagger || 0, 2.6);
+        damageBoss(30);
+        addFloat(boss.x, boss.y - 260, '破防！', '#ff3b1f', 40);
+        shots.splice(i, 1);
+        continue;
       }
     }
   }
@@ -805,6 +943,70 @@
     }
   }
 
+  function drawObjects() {
+    for (var i = 0; i < objects.length; i++) {
+      var o = objects[i];
+      var x = o.x - cam.x;
+      if (x < -160 || x > 1440) continue;
+      ctx.save();
+      ctx.translate(x, o.y);
+      if (o.dead) ctx.rotate(-o.tilt * 0.9);
+      if (o.type === 'cabinet') {
+        ctx.fillStyle = '#b9a58a';
+        ctx.strokeStyle = '#6b5a44';
+        ctx.lineWidth = 5;
+        ctx.fillRect(-36, -o.h, 72, o.h);
+        ctx.strokeRect(-36, -o.h, 72, o.h);
+        ctx.fillStyle = '#a08c71';
+        for (var d = 0; d < 3; d++) ctx.fillRect(-28, -o.h + 12 + d * 46, 56, 36);
+        ctx.fillStyle = '#5c4d3b';
+        ctx.fillRect(-6, -o.h + 28, 12, 6);
+        ctx.fillRect(-6, -o.h + 74, 12, 6);
+        ctx.fillRect(-6, -o.h + 120, 12, 6);
+      } else if (o.type === 'printer') {
+        ctx.fillStyle = '#c7d0da';
+        ctx.strokeStyle = '#6f7d8c';
+        ctx.lineWidth = 5;
+        ctx.fillRect(-46, -o.h, 92, o.h);
+        ctx.strokeRect(-46, -o.h, 92, o.h);
+        ctx.fillStyle = '#eef3f8';
+        ctx.fillRect(-32, -o.h - 18, 64, 20);
+        ctx.strokeRect(-32, -o.h - 18, 64, 20);
+        ctx.fillStyle = '#ffcf3f';
+        ctx.beginPath(); ctx.arc(30, -o.h + 20, 7, 0, TAU); ctx.fill();
+      } else {
+        ctx.fillStyle = '#d8b27c';
+        ctx.strokeStyle = '#8a6a44';
+        ctx.lineWidth = 5;
+        ctx.fillRect(-39, -o.h, 78, o.h);
+        ctx.strokeRect(-39, -o.h, 78, o.h);
+        ctx.fillStyle = '#b98f5c';
+        ctx.fillRect(-6, -o.h, 12, o.h);
+        ctx.fillStyle = '#8a6a44';
+        ctx.font = 'bold 15px "PingFang SC", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('文件', 0, -o.h / 2);
+      }
+      ctx.restore();
+    }
+  }
+
+  function drawCorpses() {
+    for (var i = 0; i < corpses.length; i++) {
+      var k = corpses[i];
+      var x = k.x - cam.x;
+      ctx.save();
+      ctx.translate(x, k.y);
+      ctx.rotate(k.rot);
+      ctx.fillStyle = k.type === 'phone' ? '#3c4048' : '#f4f1e6';
+      ctx.strokeStyle = '#2b1b12';
+      ctx.lineWidth = 3;
+      ctx.fillRect(-16, -16, 32, 32);
+      ctx.strokeRect(-16, -16, 32, 32);
+      ctx.restore();
+    }
+  }
+
   function drawHero() {
     var x = hero.x - cam.x;
     var blink = hero.invuln > 0 && Math.floor(hero.invuln * 12) % 2 === 0;
@@ -920,7 +1122,7 @@
     ctx.translate(x, boss.y - 10);
     ctx.scale(wob, 2 - wob);
     if (boss.hurt > 0) ctx.translate(rand(-5, 5), 0);
-    sprite('enemy', 0, -150, 320);
+    sprite('enemy', 0, -150, 320 * (boss.dead ? Math.max(0.1, 1 - boss.fly) : 1));
     ctx.restore();
 
     // 大饼盾
@@ -945,6 +1147,39 @@
       ctx.rotate(0.6);
       ctx.fillStyle = '#3b2c22';
       ctx.beginPath(); ctx.ellipse(0, 0, 40, 18, 0, 0, TAU); ctx.fill();
+      ctx.restore();
+    }
+
+    // 破防
+    if (boss.stagger > 0 && !boss.dead) {
+      ctx.save();
+      ctx.translate(x, boss.y - 300);
+      ctx.rotate(Math.sin(elapsed * 12) * 0.12);
+      ctx.fillStyle = '#ff3b1f';
+      ctx.strokeStyle = '#2b1b12';
+      ctx.lineWidth = 6;
+      ctx.font = 'bold 44px "PingFang SC", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.strokeText('破防！', 0, 0);
+      ctx.fillText('破防！', 0, 0);
+      ctx.restore();
+    }
+
+    // 纸箱结尾：王总被弹进「明天再说」箱
+    if (boss.dead) {
+      var bx = (boss.boxX || boss.x) - cam.x, by = GROUND_Y;
+      ctx.save();
+      ctx.fillStyle = '#d8b27c';
+      ctx.strokeStyle = '#8a6a44';
+      ctx.lineWidth = 5;
+      ctx.fillRect(bx - 70, by - 96, 140, 96);
+      ctx.strokeRect(bx - 70, by - 96, 140, 96);
+      ctx.fillStyle = '#b98f5c';
+      ctx.fillRect(bx - 12, by - 96, 24, 96);
+      ctx.fillStyle = '#5c4d3b';
+      ctx.font = 'bold 20px "PingFang SC", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('明天再说', bx, by - 52);
       ctx.restore();
     }
 
@@ -1200,11 +1435,13 @@
     bg();
     drawGround();
     drawPlatforms();
+    drawObjects();
     drawItems();
     var i;
     for (i = 0; i < enemies.length; i++) drawEnemy(enemies[i]);
     drawBoss();
     drawShots();
+    drawCorpses();
     drawHero();
     drawFx();
 
